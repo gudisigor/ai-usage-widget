@@ -1,0 +1,5 @@
+.build/
+.swiftpm/
+AIUsage.app/
+dist/
+.DS_Store
