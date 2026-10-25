@@ -13,6 +13,7 @@ A compact macOS widget that shows how much of your **ChatGPT** and **Claude** li
 - Pick which AI services to show; services you aren't signed in to are hidden automatically
 - Auto-refresh (1 / 5 / 15 / 30 min or manual), refresh on wake, one-click manual refresh
 - Launch at login
+- Update check (daily in the background and from the menu); it only notifies and opens the download page
 
 ## Install
 

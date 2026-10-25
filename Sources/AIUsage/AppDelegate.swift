@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarCard: HoverPresenter!
     private var notchCard: HoverPresenter!
     private let notchTrigger = NotchTrigger()
+    private let updater = Updater()
     private var settingsWindow: NSWindow?
     private var outsideClickMonitor: Any?
     private var bag = Set<AnyCancellable>()
@@ -46,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in self?.openSettings() }
         }
         installSnapshotHook()
+        if !demo { DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in self?.updater.checkIfDue() } }
     }
 
     // MARK: Desktop widget
@@ -165,7 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                              backing: .buffered, defer: false)
             w.title = t("title")
             w.isReleasedWhenClosed = false
-            w.contentView = NSHostingView(rootView: SettingsView(prefs: prefs, store: store))
+            w.contentView = NSHostingView(rootView: SettingsView(prefs: prefs, store: store, updater: updater))
             w.center()
             settingsWindow = w
         }
@@ -178,6 +180,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
+        if let a = updater.available {
+            menu.addItem(item(L10n.t("updateAvailable", a.version), #selector(openUpdate), symbol: "arrow.down.circle.fill"))
+            menu.addItem(.separator())
+        }
         let header = NSMenuItem(title: "\(t("title")) · \(statusLine())", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
@@ -212,6 +218,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item(prefs.showDesktop ? t("hideWidget") : t("showWidget"), #selector(toggleDesktop),
                           symbol: prefs.showDesktop ? "eye.slash" : "eye"))
         menu.addItem(.separator())
+        menu.addItem(item(t("checkUpdates"), #selector(checkUpdates), symbol: "arrow.triangle.2.circlepath"))
         menu.addItem(item(t("settingsMenu"), #selector(settingsAction), key: ",", symbol: "gearshape"))
         menu.addItem(.separator())
         menu.addItem(item(t("quit"), #selector(quit), key: "q", symbol: "power"))
@@ -239,6 +246,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func setLanguage(_ s: NSMenuItem) {
         if let raw = s.representedObject as? String, let l = Lang(rawValue: raw) { prefs.language = l }
     }
+    @objc private func openUpdate() { updater.openDownload() }
+    @objc private func checkUpdates() { updater.checkManually() }
     @objc private func refreshNow() { Task { await store.refresh() } }
     @objc private func settingsAction() { openSettings() }
     @objc private func toggleDesktop() { prefs.showDesktop.toggle() }
@@ -253,7 +262,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let path = String(arg.dropFirst("--snapshot=".count))
         DispatchQueue.main.asyncAfter(deadline: .now() + (demo ? 1.5 : 8)) {
             if CommandLine.arguments.contains("--settings") {
-                let host = NSHostingView(rootView: SettingsView(prefs: self.prefs, store: self.store))
+                let host = NSHostingView(rootView: SettingsView(prefs: self.prefs, store: self.store, updater: self.updater))
                 host.frame = NSRect(x: 0, y: 0, width: 440, height: 600)
                 let win = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
                 win.contentView = host

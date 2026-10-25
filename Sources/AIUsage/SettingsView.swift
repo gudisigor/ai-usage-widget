@@ -4,6 +4,7 @@ import ServiceManagement
 struct SettingsView: View {
     @ObservedObject var prefs: Preferences
     @ObservedObject var store: UsageStore
+    @ObservedObject var updater: Updater
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -61,12 +62,25 @@ struct SettingsView: View {
                 Picker(t("language"), selection: $prefs.language) {
                     ForEach(Lang.allCases) { Text($0.nativeName).tag($0) }
                 }
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(L10n.t("version", Updater.currentVersion))
+                        if let a = updater.available {
+                            Text(L10n.t("updateAvailable", a.version)).font(.caption).foregroundColor(.orange)
+                        }
+                    }
+                    Spacer()
+                    if updater.available != nil {
+                        Button(t("download")) { updater.openDownload() }
+                    }
+                    Button(t("checkUpdates")) { updater.checkManually() }.disabled(updater.isChecking)
+                }
                 Toggle(t("launchAtLogin"), isOn: Binding(get: { launchAtLogin }, set: setLaunch))
                 if let loginError { Text(loginError).font(.caption).foregroundColor(.orange) }
             } header: { Text(t("general")) }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 420)
+        .frame(width: 440, height: 500)
         .onAppear { Task { await store.detectLogins() } }
     }
 
