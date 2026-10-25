@@ -133,8 +133,11 @@ struct ClaudeProvider: UsageProvider {
             if let fresh = await loadCredentials() { creds = fresh }
             let o = creds["claudeAiOauth"] as? [String: Any] ?? [:]
             if ((number(o["expiresAt"]) ?? 0) / 1000) - Date().timeIntervalSince1970 < 600 {
-                // A running Claude Code refreshes its own token; stepping in could rotate it out from under it.
-                if await runProcess("/usr/bin/pgrep", ["-x", "claude"]) != nil {
+                // Not expired yet and Claude Code is running: it will renew its own token, don't race it.
+                // Already expired: an idle Claude Code won't, so we do it.
+                let o2 = creds["claudeAiOauth"] as? [String: Any] ?? [:]
+                let alreadyExpired = ((number(o2["expiresAt"]) ?? 0) / 1000) < Date().timeIntervalSince1970
+                if !alreadyExpired, await runProcess("/usr/bin/pgrep", ["-x", "claude"]) != nil {
                     throw UsageError.message(t("errWaitClaude"))
                 }
                 creds = try await refresh(creds)
